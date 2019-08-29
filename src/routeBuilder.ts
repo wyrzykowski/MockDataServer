@@ -3,14 +3,51 @@ import db from './mockData/db';
 
 const router: express.Router = express.Router();
 
+const findParam = (address: string, param: string) => {
+    const paramIndex = address.indexOf(param);
+    const afterParamString = address.substr(paramIndex);
+    const afterParamSlashIndex = afterParamString.indexOf('/');
+    const afterParamSlashIndexPosition = (afterParamSlashIndex !== -1) ? afterParamSlashIndex + paramIndex : afterParamSlashIndex;
+    return {start: paramIndex, end: afterParamSlashIndexPosition};
+}
 
-const getMethod = ( path: any, data: any) => {
-    return router.get(path,  ({ }, res: express.Response) => {
-        res.send(data);
+// If there was no slash
+const getValueOfParam = (address: string, paramPosition: any) => {
+    if(paramPosition.end !== -1){
+        return address.substr(paramPosition.start, paramPosition.end);
+    } else{
+        return address.substr(paramPosition.start);
+    }
+}
+
+export interface options{
+    findBy?: string;
+    findByParam?: string;
+}
+const getMethod = ( path: any, data: any, options: options) => {
+    return router.get(path,  (req: express.Request, res: express.Response) => {
+        // Find By Id
+        if(options.hasOwnProperty('findByParam') && options.hasOwnProperty('findBy')) {
+            const findByParam: any  = options.findByParam;
+            const findBy: any  = options.findByParam;
+            const paramPosition = findParam(path, findByParam);
+            console.log(paramPosition);
+            const paramId = getValueOfParam(req.url, paramPosition);
+            console.log("res", paramId);
+            const resData = data.items.filter((x: any) => x.id.toString() === paramId);
+            if(resData.length){
+                res.send(resData[0]); 
+            }else{
+                res.status(404).send();
+            }
+            console.log("res", resData);
+        }
+        // res.send(data);     
     });
+
 };
 
-const postMethod = ( path: any, data: any) => {
+const postMethod = ( path: any, data: any, options: options) => {
     return router.post(path,  ({ }, res: express.Response) => {
         res.send(data);
     });
@@ -35,19 +72,21 @@ const rootRouter = db.map((item, index) => {
     });
  
     const addressString = httpMehod[currentMethod];
-    console.log(addressString)
+    console.log(addressString);
  
-    if(item.options){
-        if(item.options.hasOwnProperty('findByParam') && item.options.hasOwnProperty('findBy')) {
-            console.log('find by');
-        }
-    }
+    // if(item.options){
+    //     if(item.options.hasOwnProperty('findByParam') && item.options.hasOwnProperty('findBy')) {
+    //         console.log('find by', item.options.findBy, item.options.findByParam );
+    //         const paramPosition = findParam(addressString, item.options.findByParam );
+    //         console.log(paramPosition);
+    //     }
+    // }
 
-
+    const options: any = item.hasOwnProperty('options') && item.options;
     switch (currentMethod) {
-        case 'getM' : return getMethod(addressString, item.data );
-        case 'postM' : return postMethod(addressString, item.data );
-        default: return getMethod(addressString, item.data );
+        case 'getM' : return getMethod(addressString, item.data, options );
+        case 'postM' : return postMethod(addressString, item.data, options );
+        default: return getMethod(addressString, item.data, options );
     }
 })
 
