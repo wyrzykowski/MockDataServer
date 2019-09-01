@@ -1,7 +1,21 @@
 import express from 'express';
 import db from './mockData/db';
 
+export interface Options{
+    findBy?: string;
+    findByParam?: string;
+}
+
+export interface EndpointBasesWithOption{
+    endpointBase: string;
+    data: object[];
+    options: object[];
+}
+
 const router: express.Router = express.Router();
+const endpointBasesWithOptions: EndpointBasesWithOption[] = [];
+
+
 
 const findParam = (address: string, param: string) => {
     const paramIndex = address.indexOf(param);
@@ -13,18 +27,43 @@ const findParam = (address: string, param: string) => {
 
 // If there was no slash
 const getValueOfParam = (address: string, paramPosition: any) => {
-    if(paramPosition.end !== -1){
+    if (paramPosition.end !== -1) {
         return address.substr(paramPosition.start, paramPosition.end);
-    } else{
+    } else {
         return address.substr(paramPosition.start);
     }
 }
 
-export interface options{
-    findBy?: string;
-    findByParam?: string;
-}
-const getMethod = ( path: any, data: any, options: options) => {
+const groupEndpoints = (endpointPath: any, data: any, options: any) => {
+    const paramPosition = endpointPath.indexOf(':');
+    const queryPosition = endpointPath.indexOf('?');
+    const endpointBaseEndIndex = paramPosition !== -1 ? paramPosition : queryPosition;
+    const endpointBase = endpointBaseEndIndex !== -1 ? endpointPath.substr(0, endpointBaseEndIndex - 1) :  endpointPath;
+    const existingEndpoint = endpointBasesWithOptions.find((element) => {
+        return element.endpointBase === endpointBase;
+    });
+
+    if(existingEndpoint){
+        const existingEndpointIndex = endpointBasesWithOptions.indexOf(existingEndpoint);
+        endpointBasesWithOptions[existingEndpointIndex].options.push(options);
+    }
+    else {
+        const currentOptions: Options[] = [options];
+        const currentData: any[] = [data];
+        endpointBasesWithOptions.push({
+            endpointBase: endpointBase,
+            data: currentData,
+            options: currentOptions,
+         });
+    }
+    console.log('exist', existingEndpoint);
+
+
+    console.log('base:', endpointBase, "koniec");
+};
+
+const getMethod = ( path: any, data: any, options: Options) => {
+    groupEndpoints(path, data, options );
     return router.get(path,  (req: express.Request, res: express.Response) => {
         // Find By Id
         if(options.hasOwnProperty('findByParam') && options.hasOwnProperty('findBy')) {
@@ -42,12 +81,12 @@ const getMethod = ( path: any, data: any, options: options) => {
             }
             console.log("res", resData);
         }
-        // res.send(data);     
+        // res.send(data);
     });
 
 };
 
-const postMethod = ( path: any, data: any, options: options) => {
+const postMethod = ( path: any, data: any, options: Options) => {
     return router.post(path,  ({ }, res: express.Response) => {
         res.send(data);
     });
@@ -73,7 +112,7 @@ const rootRouter = db.map((item, index) => {
  
     const addressString = httpMehod[currentMethod];
     console.log(addressString);
- 
+ // TODO: ogarnac opcje, ggy kilka razy podany ten sam path, dorobic zeby szlo po obiekcie w glab
     // if(item.options){
     //     if(item.options.hasOwnProperty('findByParam') && item.options.hasOwnProperty('findBy')) {
     //         console.log('find by', item.options.findBy, item.options.findByParam );
